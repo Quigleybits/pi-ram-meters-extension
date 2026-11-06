@@ -1,3 +1,5 @@
+/ram helps the user see which processes are using RAM unnecessarily, so they can close them and keep RAM for the needs of the moment. Judge every row, label and default against that: what is it, is it needed right now, and is it safe to close.
+
 # pi-ram-meters
 
 A Windows RAM dashboard and process-control picker for [pi](https://pi.dev/).
