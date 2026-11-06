@@ -1,0 +1,53 @@
+{
+  "name": "pi-ram-meters",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Windows RAM dashboard and confirmed process-control picker for pi",
+  "type": "module",
+  "license": "MIT",
+  "author": "quigleybits",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "ram",
+    "memory",
+    "windows",
+    "process-monitor"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "os": [
+    "win32"
+  ],
+  "files": [
+    "extensions/index.js",
+    "extensions/command.js",
+    "extensions/core.js",
+    "extensions/display.js",
+    "extensions/windows.js",
+    "extensions/table.js",
+    "extensions/app-rows.js",
+    "extensions/native.js",
+    "extensions/ownership.js",
+    "extensions/app-script.js",
+    "extensions/closure.js",
+    "extensions/observation.js"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/index.js"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-tui": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Quigleybits/pi-ram-meters-extension.git"
+  },
+  "homepage": "https://github.com/Quigleybits/pi-ram-meters-extension#readme",
+  "bugs": {
+    "url": "https://github.com/Quigleybits/pi-ram-meters-extension/issues"
+  }
+}
