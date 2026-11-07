@@ -1,6 +1,6 @@
 {
   "name": "pi-ram-meters",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Windows RAM dashboard and confirmed process-control picker for pi",
   "type": "module",
@@ -21,18 +21,20 @@
     "win32"
   ],
   "files": [
-    "extensions/index.js",
+    "extensions/app-rows.js",
+    "extensions/app-script.js",
+    "extensions/attribution.js",
+    "extensions/closure.js",
     "extensions/command.js",
     "extensions/core.js",
+    "extensions/danger.js",
     "extensions/display.js",
-    "extensions/windows.js",
-    "extensions/table.js",
-    "extensions/app-rows.js",
+    "extensions/index.js",
     "extensions/native.js",
+    "extensions/observation.js",
     "extensions/ownership.js",
-    "extensions/app-script.js",
-    "extensions/closure.js",
-    "extensions/observation.js"
+    "extensions/table.js",
+    "extensions/windows.js"
   ],
   "pi": {
     "extensions": [

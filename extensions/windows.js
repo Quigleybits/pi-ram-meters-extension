@@ -3,6 +3,7 @@ import {promisify} from "node:util";
 import {freemem,totalmem} from "node:os";
 import {validIdentity} from "./ownership.js";
 import {parseProcesses} from "./core.js";
+import {readHerdrAttribution} from "./attribution.js";
 import {NATIVE_PRELUDE} from "./native.js";
 import {buildAppPhaseScript} from "./app-script.js";
 import {executeApplication} from "./closure.js";
@@ -37,7 +38,7 @@ foreach($p in @(Get-CimInstance Win32_Process -ErrorAction Stop)) {
   }
   $cpu=$null;if($null -ne $p.KernelModeTime -and $null -ne $p.UserModeTime){$cpu=([double]$p.KernelModeTime+[double]$p.UserModeTime)/10000000}
   $rows += [pscustomobject]@{pid=[int]$p.ProcessId;ppid=[int]$p.ParentProcessId;name=$p.Name;startedMs=$birth;executablePath=$image;
-    sessionId=[int]$p.SessionId;accountSid=$account;critical=$critical;canQuery=$canQuery;cpuSeconds=$cpu;description=$description;
+    sessionId=[int]$p.SessionId;accountSid=$account;critical=$critical;canQuery=$canQuery;cpuSeconds=$cpu;description=$description;commandLine=$p.CommandLine;
     workingSetBytes=if($null -ne $p.WorkingSetSize){[double]$p.WorkingSetSize}else{$null};
     privateBytes=if($null -ne $p.PrivatePageCount){[double]$p.PrivatePageCount}else{$null};windowHandles=@();serviceCount=0}
 }
@@ -87,7 +88,8 @@ foreach($p in $rows) {
 }
 export const OBSERVATION_SCRIPT=buildObservationScript();
 export function createWindowsAdapter({run=defaultRun,platform=process.platform,selfPid=process.pid,
-  memoryInfo=()=>({freeBytes:freemem(),totalBytes:totalmem()}),now=Date.now,clock=()=>performance.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}) {
+  memoryInfo=()=>({freeBytes:freemem(),totalBytes:totalmem()}),now=Date.now,clock=()=>performance.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms)),
+  env=process.env,herdrRun=run===defaultRun?(args,options)=>defaultRun(env.HERDR_BIN_PATH||"herdr",args,options):null}={}) {
   const powershell=(source,options)=>run("powershell.exe",encode(source),options);
   const requireWindows=()=>{if(platform!=="win32")throw new Error("Windows is required");};
   const adapter={
@@ -95,11 +97,12 @@ export function createWindowsAdapter({run=defaultRun,platform=process.platform,s
       requireWindows();
       let parsed;try{parsed=parseProcesses(await powershell(SNAPSHOT_SCRIPT));}catch{parsed={processes:[],complete:false,boundariesComplete:false};}
       const controllerIdentity=parsed.processes.find(p=>p.pid===selfPid),shellIdentity=parsed.processes.find(p=>p.pid===parsed.shellPid);
+      const herdrAttribution=await readHerdrAttribution({run:herdrRun,env});
       return {...memoryInfo(),now:now(),processes:parsed.processes,processesComplete:parsed.complete,ownershipComplete:!!controllerIdentity?.canQuery,
-        boundariesComplete:parsed.boundariesComplete,controllerIdentity,shellIdentity,
+        boundariesComplete:parsed.boundariesComplete,controllerIdentity,shellIdentity,herdrAttribution,
         diagnostics:[...(!parsed.complete?["Process enumeration incomplete; actions disabled."]:[]),
           ...(!controllerIdentity?.canQuery?["Controller identity unavailable; actions disabled."]:[]),
-          ...(!parsed.boundariesComplete?["OS boundary facts incomplete; ancestor suggestions disabled."]:[])]};
+          ...(!parsed.boundariesComplete?["OS boundary facts incomplete; app-group safety/actions disabled."]:[])]};
     },
     async readProcesses({timeoutMs=5000,lineage=[]}={}) {
       requireWindows();const parsed=parseProcesses(await powershell(buildObservationScript(lineage),{timeoutMs}));

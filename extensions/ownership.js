@@ -65,7 +65,50 @@ export function rootPreview(s,selectedPid) {
   }
   return {selected,choices};
 }
+function markedActions(actions) {
+  if(!actions.some(a=>a.groupPolicy!==undefined))return false;
+  const first=actions[0],sid=first.groupPolicy?.accountSid,identities=new Set(),rootIds=new Set();
+  if(typeof sid!=="string"||!/^S-\d+(?:-\d+)+$/.test(sid))throw new Error("Invalid group policy");
+  for(const action of actions) {
+    const policy=action.groupPolicy;
+    if(!policy||policy.kind!=="same-user-app-tree-v1"||policy.accountSid!==sid
+      ||Object.keys(policy).some(key=>!["kind","accountSid"].includes(key))
+      ||!sameProcess(first.controllerIdentity,action.controllerIdentity)||action.controllerIdentity.accountSid!==sid)
+      throw new Error("Conflicting group policy");
+    if(!Array.isArray(action.roots)||!action.roots.length||!Array.isArray(action.treeTargets)||!action.treeTargets.length)
+      throw new Error("Invalid group scope");
+    const roots=new Map(action.roots.map(p=>[processIdentity(p),p])),scope=new Map();
+    if(roots.size!==action.roots.length)throw new Error("Overlapping group roots");
+    for(const root of action.roots) {
+      const id=processIdentity(root);if(rootIds.has(id))throw new Error("Overlapping group roots");rootIds.add(id);
+    }
+    for(const p of action.treeTargets) {
+      const id=processIdentity(p);
+      if(!validIdentity(p)||p.accountSid!==sid||identities.has(id)||!roots.has(p.rootIdentity)
+        ||!Number.isInteger(p.depth)||p.depth<0)throw new Error("Invalid or overlapping group identity");
+      identities.add(id);scope.set(id,p);
+    }
+    for(const p of scope.values()) {
+      const id=processIdentity(p);
+      if(roots.has(id)) {
+        if(!sameProcess(p,roots.get(id))||p.depth!==0||p.parentIdentity!==null||p.rootIdentity!==id||p.rootPid!==p.pid)
+          throw new Error("Invalid group root");
+      } else {
+        const parent=scope.get(p.parentIdentity);
+        if(!validEdge(parent,p)||parent.depth+1!==p.depth||parent.rootIdentity!==p.rootIdentity||parent.rootPid!==p.rootPid)
+          throw new Error("Invalid group lineage");
+      }
+    }
+    for(const [id,root] of roots)if(!sameProcess(root,scope.get(id)))throw new Error("Missing group root");
+    if(action.effectRootIds!==undefined&&(!Array.isArray(action.effectRootIds)||action.mode!=="task"
+      ||new Set(action.effectRootIds).size!==action.effectRootIds.length||action.effectRootIds.some(id=>!roots.has(id))))
+      throw new Error("Invalid group effect roots");
+  }
+  if(rootIds.size>32||identities.size>1000)throw new Error("Group batch limit exceeded");
+  return true;
+}
 export function deduplicateRoots(actions) {
+  if(markedActions(actions))return actions.map(action=>({...action}));
   const roots=new Map();
   for(const action of actions)for(const root of action.roots??[]) {
     const id=processIdentity(root),old=roots.get(id);if(old&&!sameProcess(old.root,root))throw new Error("Conflicting root identity");
@@ -83,6 +126,8 @@ export function combineActions(actions) {
     if(old&&!sameProcess(old,p))throw new Error('Conflicting scope identity');
     if(!old||p.depth<old.depth)scope.set(id,p);
   }
-  return {...dedup[0],id:'confirmed-batch',roots,targets:roots,treeTargets:[...scope.values()],
+  const effectRoots=dedup.some(a=>a.effectRootIds!==undefined)
+    ?{effectRootIds:dedup.flatMap(a=>a.effectRootIds??a.roots.map(processIdentity))}:{};
+  return {...dedup[0],...effectRoots,id:'confirmed-batch',roots,targets:roots,treeTargets:[...scope.values()],
     label:roots.map(p=>safeText(p.name)).join(', '),issues:dedup.flatMap(a=>a.issues),estimatedBytes:privateSum([...scope.values()])};
 }

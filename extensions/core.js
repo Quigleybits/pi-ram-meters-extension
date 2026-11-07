@@ -1,3 +1,4 @@
+import {processAttribution} from "./attribution.js";
 export const GB=1_000_000_000;
 export function safeText(value,limit=100) {
   return String(value??"").replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g,"").replace(/\x1b\[[0-?]*[ -/]*[@-~]/g,"")
@@ -11,7 +12,7 @@ export function parseProcesses(input) {
   for(const p of raw.processes) {
     if(!p||!Number.isSafeInteger(p.pid)||p.pid<0||!Number.isSafeInteger(p.ppid)||p.ppid<0||seen.has(p.pid)){complete=false;continue;}
     seen.add(p.pid);
-    processes.push({pid:p.pid,ppid:p.ppid,name:typeof p.name==="string"?p.name:"Unknown",
+    processes.push({...processAttribution(p),pid:p.pid,ppid:p.ppid,name:typeof p.name==="string"?p.name:"Unknown",
       startedMs:Number.isSafeInteger(p.startedMs)&&p.startedMs>0?p.startedMs:null,
       executablePath:typeof p.executablePath==="string"?p.executablePath:null,
       sessionId:Number.isInteger(p.sessionId)&&p.sessionId>=0?p.sessionId:null,
